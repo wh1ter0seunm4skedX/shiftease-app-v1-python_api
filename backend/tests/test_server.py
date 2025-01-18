@@ -1,65 +1,78 @@
-import unittest
-import requests
-import json
-
-class TestServer(unittest.TestCase):
-    BASE_URL = "http://127.0.0.1:5000/api"
-    TEST_USER = {
-        "email": "test.manager@shiftease.com",
-        "password": "test123",
-        "name": "Test Manager",
-        "role": "manager"
-    }
-
-    def setUp(self):
-        """Set up test case - register and get authentication token"""
-        # Try to register (might fail if user exists, that's OK)
-        requests.post(f"{self.BASE_URL}/auth/register", json=self.TEST_USER)
-        
-        # Login to get token
-        login_data = {
-            "email": self.TEST_USER["email"],
-            "password": self.TEST_USER["password"]
+def test_event_capacity_limit(self):
+    """Test event registration capacity limits"""
+    # Create multiple worker users
+    workers = []
+    for i in range(3):  # Create 3 workers
+        worker_data = {
+            "email": f"test.worker{i}@shiftease.com",
+            "password": "test123",
+            "name": f"Test Worker {i}",
+            "role": "worker"
         }
-        response = requests.post(f"{self.BASE_URL}/auth/login", json=login_data)
-        self.assertEqual(response.status_code, 200, f"Login failed: {response.text}")
+        # Register the worker
+        reg_response = requests.post(f"{self.BASE_URL}/auth/register", json=worker_data)
+        if reg_response.status_code == 201:
+            print(f"\nCreated worker: {worker_data['email']}")
         
-        data = response.json()
-        self.token = data['token']
-        self.headers = {'Authorization': f'Bearer {self.token}'}
-        print(f"\nLogged in as: {data['user']['email']}")
+        # Login as the worker to get their token
+        login_response = requests.post(f"{self.BASE_URL}/auth/login", json={
+            "email": worker_data["email"],
+            "password": worker_data["password"]
+        })
+        self.assertEqual(login_response.status_code, 200, f"Failed to login as worker: {login_response.text}")
+        workers.append({
+            "email": worker_data["email"],
+            "token": login_response.json()["token"]
+        })
 
-    def test_get_events(self):
-        """Test getting all events"""
-        response = requests.get(f"{self.BASE_URL}/events/", headers=self.headers)
-        self.assertEqual(response.status_code, 200, f"Failed to get events: {response.text}")
-        events = response.json()
-        self.assertIsInstance(events, list)
-        print(f"\nEvents retrieved: {json.dumps(events, indent=2)}")
+    # Create an event with capacity of 2
+    event_data = {
+        "title": "Limited Capacity Event",
+        "description": "This event has limited capacity",
+        "date": "2025-02-01T14:00:00Z",
+        "capacity": 2  # Only 2 workers can register
+    }
+    
+    # Create event using manager's token (from setUp)
+    create_response = requests.post(
+        f"{self.BASE_URL}/events/",
+        headers=self.headers,
+        json=event_data
+    )
+    self.assertEqual(create_response.status_code, 201, f"Failed to create event: {create_response.text}")
+    event_id = create_response.json()["event_id"]
+    print(f"\nCreated event with ID: {event_id}")
 
-    def test_get_users(self):
-        """Test getting all users"""
-        response = requests.get(f"{self.BASE_URL}/users/", headers=self.headers)
-        self.assertEqual(response.status_code, 200, f"Failed to get users: {response.text}")
-        users = response.json()
-        self.assertIsInstance(users, list)
-        print(f"\nUsers retrieved: {json.dumps(users, indent=2)}")
+    # Try to register all workers (should succeed for first 2, fail for 3rd)
+    for i, worker in enumerate(workers):
+        register_response = requests.post(
+            f"{self.BASE_URL}/events/{event_id}/register",
+            headers={"Authorization": f"Bearer {worker['token']}"}
+        )
+        
+        if i < 2:  # First two registrations should succeed
+            self.assertEqual(
+                register_response.status_code, 200,
+                f"Registration should succeed for worker {i}: {register_response.text}"
+            )
+            print(f"\nSuccessfully registered worker: {worker['email']}")
+        else:  # Third registration should fail
+            self.assertEqual(
+                register_response.status_code, 400,
+                f"Registration should fail for worker {i} due to capacity limit"
+            )
+            self.assertIn("capacity", register_response.json().get("message", "").lower())
+            print(f"\nCorrectly rejected registration for: {worker['email']} (capacity full)")
 
-        def test_create_event(self):
-            """Test creating a new event"""
-            event_data = {
-                "title": "Test Event",  # Changed from 'name' to 'title'
-                "description": "Test Description",
-                "date": "2025-02-01T14:00:00Z",
-                "capacity": 10  # Changed from 'required_workers' to 'capacity'
-            }
-            response = requests.post(f"{self.BASE_URL}/events/", 
-                                   headers=self.headers,
-                                   json=event_data)
-            self.assertEqual(response.status_code, 201, f"Failed to create event: {response.text}")
-            created_event = response.json()
-            self.assertIn('event_id', created_event)  # Changed from 'id' to 'event_id'
-            print(f"\nCreated event: {json.dumps(created_event, indent=2)}")
-
-if __name__ == '__main__':
-    unittest.main()
+    # Verify event registration count
+    event_response = requests.get(
+        f"{self.BASE_URL}/events/{event_id}",
+        headers=self.headers
+    )
+    self.assertEqual(event_response.status_code, 200)
+    event = event_response.json()
+    self.assertEqual(
+        len(event.get("registered_workers", [])), 2,
+        "Event should have exactly 2 registered workers"
+    )
+    print(f"\nFinal event registration count: {len(event.get('registered_workers', []))}")
