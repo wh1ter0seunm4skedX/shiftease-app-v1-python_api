@@ -1,6 +1,6 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, g
 from ..services.firebase_service import FirebaseService
-from ..services.auth_service import token_required, admin_required
+from ..services.auth_service import token_required, admin_required, get_current_user
 from ..models.event import Event
 
 events_bp = Blueprint('events', __name__)
@@ -70,16 +70,57 @@ def delete_event(event_id):
 @events_bp.route('/<event_id>/register', methods=['POST'])
 @token_required
 def register_for_event(event_id):
-    user_id = request.json.get('user_id')
-    if not user_id:
-        return jsonify({'message': 'User ID is required'}), 400
+    current_user = get_current_user()
+    
+    if current_user['role'] != 'worker':
+        return jsonify({'message': 'Only workers can register for events'}), 403
     
     event = firebase_service.get_event(event_id)
     if not event:
         return jsonify({'message': 'Event not found'}), 404
     
-    if len(event.registered_users) >= event.capacity:
-        return jsonify({'message': 'Event is full'}), 400
+    try:
+        event.register_user(current_user['user_id'])
+        firebase_service.update_event(event_id, {'registered_users': event.registered_users})
+        return jsonify({'message': 'Successfully registered for event'})
+    except ValueError as e:
+        return jsonify({'message': str(e)}), 400
+
+@events_bp.route('/<event_id>/unregister', methods=['POST'])
+@token_required
+def unregister_from_event(event_id):
+    current_user = get_current_user()
     
-    firebase_service.register_for_event(event_id, user_id)
-    return jsonify({'message': 'Successfully registered for event'})
+    if current_user['role'] != 'worker':
+        return jsonify({'message': 'Only workers can unregister from events'}), 403
+    
+    event = firebase_service.get_event(event_id)
+    if not event:
+        return jsonify({'message': 'Event not found'}), 404
+    
+    try:
+        event.unregister_user(current_user['user_id'])
+        firebase_service.update_event(event_id, {'registered_users': event.registered_users})
+        return jsonify({'message': 'Successfully unregistered from event'})
+    except ValueError as e:
+        return jsonify({'message': str(e)}), 400
+
+@events_bp.route('/my-events', methods=['GET'])
+@token_required
+def get_my_events():
+    current_user = get_current_user()
+    
+    if current_user['role'] != 'worker':
+        return jsonify({'message': 'Only workers can view their registered events'}), 403
+    
+    events = firebase_service.get_all_events()
+    my_events = [
+        {
+            'id': event.id,
+            **event.to_dict()
+        }
+        for event in events
+        if event.is_user_registered(current_user['user_id'])
+    ]
+    
+    return jsonify(my_events)

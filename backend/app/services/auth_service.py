@@ -2,7 +2,7 @@ import jwt
 import os
 from datetime import datetime, timedelta
 from functools import wraps
-from flask import request, jsonify
+from flask import request, jsonify, g
 from .firebase_service import FirebaseService
 
 class AuthService:
@@ -28,53 +28,48 @@ class AuthService:
         except jwt.InvalidTokenError:
             return None
 
+def get_current_user():
+    """Get the current user from the token in the request header"""
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return None
+    
+    try:
+        token = auth_header.split(" ")[1]
+        auth_service = AuthService()
+        payload = auth_service.verify_token(token)
+        if payload:
+            return {
+                'user_id': payload['user_id'],
+                'email': payload['email'],
+                'role': payload['role']
+            }
+    except (IndexError, jwt.InvalidTokenError):
+        return None
+    
+    return None
+
 def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        token = None
-        auth_header = request.headers.get('Authorization')
+        current_user = get_current_user()
+        if not current_user:
+            return jsonify({'message': 'Invalid or missing token'}), 401
         
-        if auth_header:
-            try:
-                token = auth_header.split(" ")[1]
-            except IndexError:
-                return jsonify({'message': 'Invalid token format'}), 401
-
-        if not token:
-            return jsonify({'message': 'Token is missing'}), 401
-
-        auth_service = AuthService()
-        payload = auth_service.verify_token(token)
-        
-        if not payload:
-            return jsonify({'message': 'Invalid token'}), 401
-
+        g.current_user = current_user
         return f(*args, **kwargs)
     return decorated
 
 def admin_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        token = None
-        auth_header = request.headers.get('Authorization')
+        current_user = get_current_user()
+        if not current_user:
+            return jsonify({'message': 'Invalid or missing token'}), 401
         
-        if auth_header:
-            try:
-                token = auth_header.split(" ")[1]
-            except IndexError:
-                return jsonify({'message': 'Invalid token format'}), 401
-
-        if not token:
-            return jsonify({'message': 'Token is missing'}), 401
-
-        auth_service = AuthService()
-        payload = auth_service.verify_token(token)
-        
-        if not payload:
-            return jsonify({'message': 'Invalid token'}), 401
-
-        if payload['role'] != 'manager':
+        if current_user['role'] != 'manager':
             return jsonify({'message': 'Admin privileges required'}), 403
-
+        
+        g.current_user = current_user
         return f(*args, **kwargs)
     return decorated

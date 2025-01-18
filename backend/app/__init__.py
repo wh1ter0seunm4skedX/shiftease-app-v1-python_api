@@ -1,6 +1,6 @@
 from flask import Flask
 from flask_cors import CORS
-from ..config.config import config
+from config.config import config
 from .routes.auth_routes import auth_bp
 from .routes.event_routes import events_bp
 from .routes.user_routes import users_bp
