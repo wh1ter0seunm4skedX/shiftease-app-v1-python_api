@@ -49,4 +49,3 @@ firebase-credentials.json
 firebase-debug.log
 firebase-debug.*.log
 frontend/.env.local
-frontend/.env.local
