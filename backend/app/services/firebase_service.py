@@ -20,11 +20,14 @@ class FirebaseService:
         self.is_testing = os.getenv('TESTING', 'false').lower() == 'true'
         
         if self.is_testing:
+            print("Running in test mode, using mock database")
             self._initialize_mock_db()
         else:
             try:
                 # Get the absolute path to the credentials file
                 creds_path = os.getenv('FIREBASE_CREDENTIALS_PATH')
+                print(f"Looking for Firebase credentials at: {creds_path}")
+                
                 if not creds_path:
                     raise ValueError("FIREBASE_CREDENTIALS_PATH environment variable not set")
                 
@@ -32,29 +35,38 @@ class FirebaseService:
                 if not os.path.isabs(creds_path):
                     base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
                     creds_path = os.path.join(base_dir, creds_path)
+                    print(f"Converted to absolute path: {creds_path}")
                 
                 if not os.path.exists(creds_path):
                     raise FileNotFoundError(f"Firebase credentials file not found at: {creds_path}")
                 
                 # Initialize Firebase if not already initialized
                 if not firebase_admin._apps:
+                    print("Initializing Firebase...")
                     cred = credentials.Certificate(creds_path)
                     firebase_admin.initialize_app(cred)
+                    print("Firebase initialized successfully!")
                 
                 self.db = firestore.client()
-                print("Successfully connected to Firebase!")
+                self.is_testing = False
+                print("Successfully connected to Firestore!")
+                
             except Exception as e:
                 print(f"Error initializing Firebase: {str(e)}")
-                print("Falling back to mock database for testing")
+                print("Stack trace:", e.__traceback__)
+                print("Falling back to mock database")
+                self.is_testing = True
                 self._initialize_mock_db()
 
     def _initialize_mock_db(self):
         """Initialize a mock database for testing"""
+        print("Initializing mock database")
         self.mock_db = {
             'users': {},
             'events': {}
         }
         self.db = self.MockFirestore(self.mock_db)
+        print("Mock database initialized")
 
     class MockFirestore:
         def __init__(self, mock_db):
