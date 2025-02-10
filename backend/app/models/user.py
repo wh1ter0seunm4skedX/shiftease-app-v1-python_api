@@ -19,14 +19,14 @@ class User:
         }
     
     @staticmethod
-    def from_dict(source, user_id=None):
+    def from_dict(data, user_id=None):
+        """Create a User instance from a dictionary"""
         user = User(
-            user_id=user_id,
-            email=source.get('email'),
-            name=source.get('name'),
-            role=source.get('role'),
-            password=source.get('password')
+            email=data.get('email'),
+            name=data.get('name'),
+            role=data.get('role'),
+            password=data.get('password'),
+            user_id=user_id or data.get('user_id')
         )
-        if 'created_at' in source:
-            user.created_at = source['created_at']
+        user.created_at = data.get('created_at', datetime.utcnow().isoformat())
         return user

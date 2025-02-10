@@ -140,20 +140,31 @@ class FirebaseService:
     # User operations
     def create_user(self, user: User):
         """Create a new user document"""
-        users_ref = self.db.collection('users')
-        user_doc = users_ref.document()
-        user_data = user.to_dict()
-        user_data['id'] = user_doc.id
-        user_data['created_at'] = datetime.now().isoformat()
-        user_doc.set(user_data)
-        return user_data
+        if self.is_testing:
+            user_id = str(len(self.mock_db['users']) + 1)
+            self.mock_db['users'][user_id] = user.to_dict()
+            return user_id
+        else:
+            doc_ref = self.db.collection('users').document()
+            user_data = user.to_dict()
+            doc_ref.set(user_data)
+            return doc_ref.id
 
-    def get_user(self, user_id: str):
+    def get_user(self, user_id: str) -> User:
         """Get user by ID"""
-        user_doc = self.db.collection('users').document(user_id).get()
-        if user_doc.exists:
-            return User.from_dict(user_doc.to_dict(), user_id)
-        return None
+        if self.is_testing:
+            if user_id not in self.mock_db['users']:
+                return None
+            user_data = self.mock_db['users'][user_id]
+            return User.from_dict(user_data)
+        else:
+            doc_ref = self.db.collection('users').document(user_id)
+            doc = doc_ref.get()
+            if not doc.exists:
+                return None
+            user_data = doc.to_dict()
+            user_data['user_id'] = doc.id
+            return User.from_dict(user_data)
 
     def get_user_by_email(self, email: str):
         """Get user by email"""
@@ -182,21 +193,31 @@ class FirebaseService:
     # Event operations
     def create_event(self, event: Event):
         """Create a new event document"""
-        events_ref = self.db.collection('events')
-        event_doc = events_ref.document()
-        event_data = event.to_dict()
-        event_data['id'] = event_doc.id
-        event_data['created_at'] = datetime.now().isoformat()
-        event_data['registered_users'] = []
-        event_doc.set(event_data)
-        return event_data
+        if self.is_testing:
+            event_id = str(len(self.mock_db['events']) + 1)
+            self.mock_db['events'][event_id] = event.to_dict()
+            return event_id
+        else:
+            doc_ref = self.db.collection('events').document()
+            event_data = event.to_dict()
+            doc_ref.set(event_data)
+            return doc_ref.id
 
-    def get_event(self, event_id: str):
+    def get_event(self, event_id: str) -> Event:
         """Get event by ID"""
-        event_doc = self.db.collection('events').document(event_id).get()
-        if event_doc.exists:
-            return Event.from_dict(event_doc.to_dict(), event_id)
-        return None
+        if self.is_testing:
+            if event_id not in self.mock_db['events']:
+                return None
+            event_data = self.mock_db['events'][event_id]
+            return Event.from_dict(event_data)
+        else:
+            doc_ref = self.db.collection('events').document(event_id)
+            doc = doc_ref.get()
+            if not doc.exists:
+                return None
+            event_data = doc.to_dict()
+            event_data['event_id'] = doc.id
+            return Event.from_dict(event_data)
 
     def get_all_events(self):
         """Get all events"""

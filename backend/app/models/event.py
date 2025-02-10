@@ -19,24 +19,22 @@ class Event:
             'capacity': self.capacity,
             'required_workers': self.required_workers,
             'registered_users': self.registered_users,
-            'created_at': self.created_at,
-            'needs_workers': self.needs_workers()
+            'created_at': self.created_at
         }
     
     @staticmethod
-    def from_dict(source, event_id=None):
+    def from_dict(data, event_id=None):
+        """Create an Event instance from a dictionary"""
         event = Event(
-            event_id=event_id,
-            title=source.get('title'),
-            description=source.get('description'),
-            date=source.get('date'),
-            capacity=source.get('capacity'),
-            required_workers=source.get('required_workers')
+            title=data.get('title'),
+            description=data.get('description'),
+            date=data.get('date'),
+            capacity=data.get('capacity'),
+            required_workers=data.get('required_workers'),
+            event_id=event_id or data.get('event_id')
         )
-        if 'registered_users' in source:
-            event.registered_users = source['registered_users']
-        if 'created_at' in source:
-            event.created_at = source['created_at']
+        event.registered_users = data.get('registered_users', [])
+        event.created_at = data.get('created_at', datetime.utcnow().isoformat())
         return event
 
     def is_full(self):
