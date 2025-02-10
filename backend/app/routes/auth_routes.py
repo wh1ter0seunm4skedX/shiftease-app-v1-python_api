@@ -26,7 +26,20 @@ def register():
     )
     
     user_id = firebase_service.create_user(user)
-    return jsonify({'message': 'User created successfully', 'user_id': user_id}), 201
+    
+    # Generate token for the new user
+    token = auth_service.generate_token(user)
+    
+    return jsonify({
+        'message': 'User created successfully',
+        'token': token,
+        'user': {
+            'id': user_id,
+            'email': user.email,
+            'name': user.name,
+            'role': user.role
+        }
+    }), 201
 
 @auth_bp.route('/login', methods=['POST'])
 def login():

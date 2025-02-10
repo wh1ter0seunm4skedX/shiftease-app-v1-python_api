@@ -1,88 +1,134 @@
-import axios from 'axios';
+import axios, { AxiosInstance, AxiosResponse } from 'axios';
 import { Event, User } from '../types';
 
-const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000',
-});
+class ApiService {
+  private api: AxiosInstance;
+  private token: string | null = null;
 
-// Add token to requests if available
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+  constructor() {
+    this.api = axios.create({
+      baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      withCredentials: false // Changed to false since we're using token-based auth
+    });
+
+    this.api.interceptors.request.use(
+      (config) => {
+        if (this.token) {
+          config.headers.Authorization = `Bearer ${this.token}`;
+        }
+        return config;
+      },
+      (error) => {
+        return Promise.reject(error);
+      }
+    );
+
+    this.api.interceptors.response.use(
+      (response) => response,
+      (error) => {
+        if (error.response?.status === 401) {
+          localStorage.removeItem('token');
+          window.location.href = '/login';
+        }
+        console.error('API Error:', error.response?.data || error.message);
+        return Promise.reject(error);
+      }
+    );
   }
-  return config;
-});
 
-// Handle unauthorized responses
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
+  setToken(token: string | null) {
+    this.token = token;
+    if (token) {
+      localStorage.setItem('token', token);
+    } else {
       localStorage.removeItem('token');
-      window.location.href = '/login';
     }
-    return Promise.reject(error);
   }
-);
 
-export const apiService = {
-  // Auth endpoints
-  login: async (email: string, password: string) => {
-    const response = await api.post('/auth/login', { email, password });
-    const { token, user } = response.data;
-    localStorage.setItem('token', token);
-    return user;
-  },
+  async get<T = any>(url: string): Promise<AxiosResponse<T>> {
+    return this.api.get(url);
+  }
 
-  register: async (email: string, password: string, name: string) => {
-    const response = await api.post('/auth/register', { email, password, name });
-    const { token, user } = response.data;
-    localStorage.setItem('token', token);
-    return user;
-  },
+  async post<T = any>(url: string, data: any): Promise<AxiosResponse<T>> {
+    return this.api.post(url, data);
+  }
 
-  logout: async () => {
-    localStorage.removeItem('token');
-  },
+  async put<T = any>(url: string, data: any): Promise<AxiosResponse<T>> {
+    return this.api.put(url, data);
+  }
 
-  getCurrentUser: async () => {
-    const response = await api.get('/auth/me');
-    return response.data;
-  },
+  async delete<T = any>(url: string): Promise<AxiosResponse<T>> {
+    return this.api.delete(url);
+  }
 
-  // Event endpoints
-  getEvents: async () => {
-    const response = await api.get('/api/events');
-    return response.data;
-  },
+  async login(email: string, password: string) {
+    try {
+      const response = await this.post('/auth/login', { email, password });
+      const { token, user } = response.data;
+      this.setToken(token);
+      return user;
+    } catch (error) {
+      console.error('Login failed:', error);
+      throw error;
+    }
+  }
 
-  getEvent: async (id: string) => {
-    const response = await api.get(`/api/events/${id}`);
-    return response.data;
-  },
+  async register(email: string, password: string, name: string, role: string) {
+    try {
+      const response = await this.post('/auth/register', { 
+        email, 
+        password, 
+        name,
+        role
+      });
+      const { token, user } = response.data;
+      this.setToken(token);
+      return user;
+    } catch (error) {
+      console.error('Registration failed:', error);
+      throw error;
+    }
+  }
 
-  createEvent: async (data: Partial<Event>) => {
-    const response = await api.post('/api/events', data);
-    return response.data;
-  },
+  async logout() {
+    this.setToken(null);
+  }
 
-  updateEvent: async (id: string, data: Partial<Event>) => {
-    const response = await api.put(`/api/events/${id}`, data);
-    return response.data;
-  },
-
-  deleteEvent: async (id: string) => {
-    await api.delete(`/api/events/${id}`);
-  },
-
-  registerForEvent: async (id: string) => {
-    const response = await api.post(`/api/events/${id}/register`);
-    return response.data;
-  },
-
-  unregisterFromEvent: async (id: string) => {
-    const response = await api.post(`/api/events/${id}/unregister`);
+  async getCurrentUser() {
+    const response = await this.get('/auth/me');
     return response.data;
   }
-};
+
+  async getEvents() {
+    return this.get('/events');
+  }
+
+  async getEvent(id: string) {
+    return this.get(`/events/${id}`);
+  }
+
+  async createEvent(eventData: Partial<Event>) {
+    return this.post('/events', eventData);
+  }
+
+  async updateEvent(eventId: string, eventData: Partial<Event>) {
+    return this.put(`/events/${eventId}`, eventData);
+  }
+
+  async deleteEvent(eventId: string) {
+    return this.delete(`/events/${eventId}`);
+  }
+
+  async registerForEvent(eventId: string) {
+    return this.post(`/events/${eventId}/register`, {});
+  }
+
+  async unregisterFromEvent(eventId: string) {
+    return this.delete(`/events/${eventId}/register`);
+  }
+}
+
+export const apiService = new ApiService();
