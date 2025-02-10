@@ -2,28 +2,26 @@ export interface User {
   id: string;
   email: string;
   name: string;
-  role: 'admin' | 'volunteer';
-  createdAt?: string;
-  updatedAt?: string;
-}
-
-export interface Event {
-  id?: string;
-  title: string;
-  description: string;
-  date: string;
-  location: string;
-  required_workers: number;
-  registered_users: string[];
-  createdBy: string;
-  createdAt?: string;
-  updatedAt?: string;
+  role: string;
+  created_at?: string;
 }
 
 export interface AuthContextType {
   user: User | null;
-  loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<{ success: boolean }>;
+  register: (email: string, password: string, name: string, role: string) => Promise<{ success: boolean }>;
   logout: () => Promise<void>;
-  register: (email: string, password: string, name: string) => Promise<void>;
+  loading: boolean;
+}
+
+export interface Event {
+  id: string;
+  title: string;
+  description: string;
+  date: string;
+  capacity: number;
+  registered_workers: string[];
+  created_by: string;
+  created_at: string;
+  updated_at?: string;
 }

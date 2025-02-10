@@ -10,7 +10,7 @@ def create_app(config_name='default'):
     
     # Configure CORS
     CORS(app, 
-         resources={r"/api/*": {"origins": "http://localhost:3000"}},
+         resources={r"/api/*": {"origins": ["http://localhost:3000", "http://localhost:5173"]}},
          supports_credentials=True,
          allow_headers=["Content-Type", "Authorization"],
          methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
@@ -23,20 +23,19 @@ def create_app(config_name='default'):
     app.register_blueprint(events_bp, url_prefix='/api/events')
     app.register_blueprint(users_bp, url_prefix='/api/users')
     
-    # Global OPTIONS handler
-    @app.route('/api/auth/login', methods=['OPTIONS'])
-    @app.route('/api/auth/register', methods=['OPTIONS'])
-    def handle_auth_options():
-        response = app.make_default_options_response()
-        return response
+    # Global OPTIONS handler for all routes
+    @app.route('/api/<path:path>', methods=['OPTIONS'])
+    def handle_options(path):
+        return '', 204
 
     @app.after_request
     def after_request(response):
-        origin = request.headers.get('Origin', 'http://localhost:3000')
-        response.headers.add('Access-Control-Allow-Origin', origin)
-        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
-        response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
-        response.headers.add('Access-Control-Allow-Credentials', 'true')
+        origin = request.headers.get('Origin')
+        if origin in ['http://localhost:3000', 'http://localhost:5173']:
+            response.headers.add('Access-Control-Allow-Origin', origin)
+            response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+            response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+            response.headers.add('Access-Control-Allow-Credentials', 'true')
         return response
     
     return app
