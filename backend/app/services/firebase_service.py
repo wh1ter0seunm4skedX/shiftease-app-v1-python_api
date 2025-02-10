@@ -23,11 +23,29 @@ class FirebaseService:
             self._initialize_mock_db()
         else:
             try:
-                cred = credentials.Certificate(os.getenv('FIREBASE_CREDENTIALS_PATH'))
-                firebase_admin.initialize_app(cred)
+                # Get the absolute path to the credentials file
+                creds_path = os.getenv('FIREBASE_CREDENTIALS_PATH')
+                if not creds_path:
+                    raise ValueError("FIREBASE_CREDENTIALS_PATH environment variable not set")
+                
+                # Convert relative path to absolute path if necessary
+                if not os.path.isabs(creds_path):
+                    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+                    creds_path = os.path.join(base_dir, creds_path)
+                
+                if not os.path.exists(creds_path):
+                    raise FileNotFoundError(f"Firebase credentials file not found at: {creds_path}")
+                
+                # Initialize Firebase if not already initialized
+                if not firebase_admin._apps:
+                    cred = credentials.Certificate(creds_path)
+                    firebase_admin.initialize_app(cred)
+                
                 self.db = firestore.client()
+                print("Successfully connected to Firebase!")
             except Exception as e:
-                print(f"Warning: Could not initialize Firebase. Using mock database. Error: {str(e)}")
+                print(f"Error initializing Firebase: {str(e)}")
+                print("Falling back to mock database for testing")
                 self._initialize_mock_db()
 
     def _initialize_mock_db(self):
