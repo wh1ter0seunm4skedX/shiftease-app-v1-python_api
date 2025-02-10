@@ -1,92 +1,158 @@
 # ShiftEase Backend
 
-This is the backend service for ShiftEase, a modern web-based platform for managing event registration and attendance tracking for youth workers in community centers.
+The backend service for ShiftEase, built with Flask and Firebase.
+
+## Technology Stack
+
+- **Framework**: Flask
+- **Database**: Firebase Firestore
+- **Authentication**: JWT + Firebase Auth
+- **Testing**: Python unittest
+- **Documentation**: OpenAPI/Swagger
 
 ## Project Structure
 
 ```
 backend/
 ├── app/
-│   ├── models/
-│   │   ├── user.py
-│   │   └── event.py
-│   ├── routes/
-│   │   ├── auth_routes.py
-│   │   ├── event_routes.py
-│   │   └── user_routes.py
-│   ├── services/
-│   │   ├── firebase_service.py
-│   │   └── auth_service.py
-│   ├── utils/
-│   └── __init__.py
+│   ├── models/        # Data models
+│   ├── routes/        # API endpoints
+│   ├── services/      # Business logic
+│   └── __init__.py    # App initialization
 ├── config/
-│   └── config.py
-├── tests/
-│   └── test_api.py
-├── requirements.txt
-└── run.py
+│   └── config.py      # Configuration settings
+├── scripts/           # Utility scripts
+├── tests/             # Test suite
+├── .env.example       # Environment variables template
+├── requirements.txt   # Python dependencies
+└── run.py            # Application entry point
 ```
 
 ## Setup Instructions
 
-1. Create a virtual environment:
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
+1. Create a Python virtual environment:
+```bash
+python -m venv venv
+source venv/bin/activate  # On Windows: .\venv\Scripts\activate
+```
 
 2. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
+```bash
+pip install -r requirements.txt
+```
 
 3. Set up Firebase:
-   - Create a Firebase project at https://console.firebase.google.com/
-   - Download the service account key
-   - Save it as `firebase-credentials.json` in the project root
+   - Create a Firebase project at [Firebase Console](https://console.firebase.google.com/)
+   - Go to Project Settings > Service Accounts
+   - Generate a new private key
+   - Save the JSON file as `firebase-credentials.json` in the `config/` directory
 
-4. Create a `.env` file with the following variables:
-   ```
-   FLASK_APP=run.py
-   FLASK_ENV=development
-   FIREBASE_CREDENTIALS_PATH=../firebase-credentials.json
-   JWT_SECRET=your-secure-secret-key
-   ```
+4. Configure environment variables:
+```bash
+cp .env.example .env
+```
+
+Edit `.env` with your settings:
+```
+FLASK_APP=run.py
+FLASK_ENV=development
+FIREBASE_CREDENTIALS_PATH=config/firebase-credentials.json
+JWT_SECRET=your-secret-key
+TESTING=false
+```
 
 5. Run the application:
-   ```bash
-   python run.py
-   ```
+```bash
+python run.py
+```
 
 ## API Documentation
 
-### Authentication
-- POST /api/auth/register - Register a new user
-- POST /api/auth/login - Login and get JWT token
+### Authentication Endpoints
 
-### Events
-- GET /api/events - Get all events
-- POST /api/events - Create a new event (manager only)
-- GET /api/events/{event_id} - Get specific event
-- PUT /api/events/{event_id} - Update event (manager only)
-- DELETE /api/events/{event_id} - Delete event (manager only)
-- POST /api/events/{event_id}/register - Register for an event
+#### POST /api/auth/register
+Register a new user
+- Body: `{ "email": "string", "password": "string", "name": "string", "role": "string" }`
+- Response: `{ "message": "string", "token": "string", "user": {...} }`
 
-### Users
-- GET /api/users - Get all users (manager only)
-- GET /api/users/{user_id} - Get specific user (manager only)
-- PUT /api/users/{user_id} - Update user (manager only)
-- DELETE /api/users/{user_id} - Delete user (manager only)
+#### POST /api/auth/login
+Login existing user
+- Body: `{ "email": "string", "password": "string" }`
+- Response: `{ "token": "string", "user": {...} }`
+
+### Event Endpoints
+
+#### GET /api/events
+Get all events
+- Auth: Required
+- Response: `[{ "id": "string", "title": "string", ... }]`
+
+#### POST /api/events
+Create new event
+- Auth: Required (Admin only)
+- Body: `{ "title": "string", "description": "string", "date": "string", "capacity": "number" }`
+- Response: `{ "message": "string", "event": {...} }`
+
+#### PUT /api/events/{id}
+Update event
+- Auth: Required (Admin only)
+- Body: `{ "title": "string", "description": "string", ... }`
+- Response: `{ "message": "string", "event": {...} }`
+
+#### DELETE /api/events/{id}
+Delete event
+- Auth: Required (Admin only)
+- Response: `{ "message": "string" }`
+
+## Error Handling
+
+The API uses standard HTTP status codes:
+- 200: Success
+- 201: Created
+- 400: Bad Request
+- 401: Unauthorized
+- 403: Forbidden
+- 404: Not Found
+- 500: Internal Server Error
 
 ## Testing
 
-Run the tests using:
+Run the test suite:
 ```bash
-python -m pytest tests/
+python -m pytest
 ```
 
-## Security Notes
+## Development Guidelines
 
-- JWT tokens are used for authentication
-- Role-based access control is implemented
-- In production, passwords should be hashed before storage
+1. Follow PEP 8 style guide
+2. Write unit tests for new features
+3. Update documentation for API changes
+4. Use meaningful commit messages
+5. Create feature branches for new development
+
+## Deployment
+
+1. Set environment variables for production
+2. Configure CORS settings for production domain
+3. Set up logging and monitoring
+4. Configure rate limiting
+5. Enable HTTPS
+
+## Troubleshooting
+
+Common issues and solutions:
+
+1. **Firebase Connection Issues**
+   - Check credentials file path
+   - Verify project configuration
+   - Check Firebase Console permissions
+
+2. **Authentication Errors**
+   - Verify JWT secret key
+   - Check token expiration
+   - Confirm user permissions
+
+3. **Database Operations**
+   - Check Firestore rules
+   - Verify data structure
+   - Check connection status
