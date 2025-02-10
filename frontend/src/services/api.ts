@@ -1,27 +1,26 @@
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
 import { Event, User } from '../types';
+import { auth } from '../config/firebase';
 
 class ApiService {
   private api: AxiosInstance;
   private token: string | null = null;
 
   constructor() {
-    // Initialize token from localStorage
-    this.token = localStorage.getItem('token');
-
     this.api = axios.create({
       baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
       headers: {
         'Content-Type': 'application/json',
-        ...(this.token && { Authorization: `Bearer ${this.token}` })
-      },
-      withCredentials: false
+      }
     });
 
     this.api.interceptors.request.use(
-      (config) => {
-        const token = localStorage.getItem('token');
-        if (token) {
+      async (config) => {
+        // Get current user from Firebase Auth
+        const user = auth.currentUser;
+        if (user) {
+          // Get fresh token
+          const token = await user.getIdToken(true);
           config.headers.Authorization = `Bearer ${token}`;
         }
         return config;
@@ -34,31 +33,11 @@ class ApiService {
     this.api.interceptors.response.use(
       (response) => response,
       async (error) => {
-        const originalRequest = error.config;
-
-        // Handle 401 errors
-        if (error.response?.status === 401 && !originalRequest._retry) {
-          originalRequest._retry = true;
-
-          try {
-            // Try to refresh the token
-            const response = await this.post('/auth/refresh', {});
-            const newToken = response.data.token;
-            
-            if (newToken) {
-              this.setToken(newToken);
-              originalRequest.headers.Authorization = `Bearer ${newToken}`;
-              return this.api(originalRequest);
-            }
-          } catch (refreshError) {
-            // If refresh fails, clear auth and redirect to login
-            this.clearAuth();
-            window.location.href = '/login';
-            return Promise.reject(refreshError);
-          }
+        if (error.response?.status === 401) {
+          // Sign out from Firebase if token is invalid
+          await auth.signOut();
+          window.location.href = '/login';
         }
-
-        console.error('API Error:', error.response?.data || error.message);
         return Promise.reject(error);
       }
     );
@@ -66,19 +45,10 @@ class ApiService {
 
   setToken(token: string | null) {
     this.token = token;
-    if (token) {
-      localStorage.setItem('token', token);
-      this.api.defaults.headers.common.Authorization = `Bearer ${token}`;
-    } else {
-      this.clearAuth();
-    }
   }
 
   clearAuth() {
     this.token = null;
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    delete this.api.defaults.headers.common.Authorization;
   }
 
   async get<T = any>(url: string): Promise<AxiosResponse<T>> {

@@ -1,153 +1,117 @@
 import os
 import firebase_admin
-from firebase_admin import credentials, firestore
+from firebase_admin import credentials, firestore, auth
 from datetime import datetime
 import json
 from ..models.user import User
 from ..models.event import Event
+from functools import wraps
+from flask import request, jsonify
 
 class FirebaseService:
     _instance = None
-
+    
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super(FirebaseService, cls).__new__(cls)
-            cls._instance._initialize()
-        return cls._instance
-
-    def _initialize(self):
-        """Initialize Firebase connection or mock database for testing"""
-        self.is_testing = os.getenv('TESTING', 'false').lower() == 'true'
-        
-        if self.is_testing:
-            print("Running in test mode, using mock database")
-            self._initialize_mock_db()
-        else:
             try:
-                # Get the absolute path to the credentials file
-                creds_path = os.getenv('FIREBASE_CREDENTIALS_PATH')
-                print(f"Looking for Firebase credentials at: {creds_path}")
-                
-                if not creds_path:
-                    raise ValueError("FIREBASE_CREDENTIALS_PATH environment variable not set")
-                
-                # Convert relative path to absolute path if necessary
-                if not os.path.isabs(creds_path):
-                    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-                    creds_path = os.path.join(base_dir, creds_path)
-                    print(f"Converted to absolute path: {creds_path}")
-                
+                firebase_admin.get_app()
+            except ValueError:
+                # Use the credentials file from the config directory
+                creds_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'config', 'firebase-credentials.json')
                 if not os.path.exists(creds_path):
                     raise FileNotFoundError(f"Firebase credentials file not found at: {creds_path}")
                 
-                # Initialize Firebase if not already initialized
-                if not firebase_admin._apps:
-                    print("Initializing Firebase...")
-                    cred = credentials.Certificate(creds_path)
-                    firebase_admin.initialize_app(cred)
-                    print("Firebase initialized successfully!")
+                print(f"Initializing Firebase with credentials from: {creds_path}")
+                cred = credentials.Certificate(creds_path)
+                firebase_admin.initialize_app(cred)
                 
-                self.db = firestore.client()
-                self.is_testing = False
-                print("Successfully connected to Firestore!")
-                
-            except Exception as e:
-                print(f"Error initializing Firebase: {str(e)}")
-                print("Stack trace:", e.__traceback__)
-                print("Falling back to mock database")
-                self.is_testing = True
-                self._initialize_mock_db()
+        return cls._instance
 
-    def _initialize_mock_db(self):
-        """Initialize a mock database for testing"""
-        print("Initializing mock database")
-        self.mock_db = {
-            'users': {},
-            'events': {}
-        }
-        self.db = self.MockFirestore(self.mock_db)
-        print("Mock database initialized")
+    def verify_token(self, id_token):
+        """
+        Verify the Firebase ID token
+        :param id_token: The Firebase ID token to verify
+        :return: The decoded token if valid, None otherwise
+        """
+        try:
+            decoded_token = auth.verify_id_token(id_token)
+            return decoded_token
+        except Exception as e:
+            print(f"Token verification error: {str(e)}")
+            return None
 
-    class MockFirestore:
-        def __init__(self, mock_db):
-            self.mock_db = mock_db
+    def get_user_by_id(self, uid):
+        """
+        Get a user from Firestore by their UID
+        :param uid: The user's UID
+        :return: User object if found, None otherwise
+        """
+        try:
+            # First get the Firebase Auth user
+            auth_user = auth.get_user(uid)
+            
+            # Then get the user document from Firestore
+            db = firestore.client()
+            user_doc = db.collection('users').document(uid).get()
+            
+            if user_doc.exists:
+                user_data = user_doc.to_dict()
+                return User(
+                    id=uid,
+                    email=auth_user.email,
+                    name=user_data.get('name', ''),
+                    role=user_data.get('role', 'worker')
+                )
+            return None
+        except Exception as e:
+            print(f"Error getting user: {str(e)}")
+            return None
 
-        def collection(self, collection_name):
-            return FirebaseService.MockCollection(self.mock_db, collection_name)
+    def create_user(self, user: User):
+        """
+        Create a new user in Firestore
+        :param user: User object
+        :return: None
+        """
+        try:
+            db = firestore.client()
+            user_ref = db.collection('users').document(user.id)
+            user_ref.set({
+                'name': user.name,
+                'email': user.email,
+                'role': user.role,
+                'created_at': firestore.SERVER_TIMESTAMP
+            })
+            
+            # Set custom claims for role-based access
+            auth.set_custom_user_claims(user.id, {'role': user.role})
+            
+        except Exception as e:
+            print(f"Error creating user: {str(e)}")
+            raise
 
-    class MockCollection:
-        def __init__(self, mock_db, collection_name):
-            self.mock_db = mock_db
-            self.collection_name = collection_name
-
-        def document(self, doc_id=None):
-            if doc_id is None:
-                doc_id = str(len(self.mock_db[self.collection_name]) + 1)
-            return FirebaseService.MockDocument(self.mock_db, self.collection_name, doc_id)
-
-        def get(self):
-            docs = []
-            for doc_id, data in self.mock_db[self.collection_name].items():
-                docs.append(FirebaseService.MockDocumentSnapshot(doc_id, data))
-            return docs
-
-        def where(self, field, op, value):
-            filtered_docs = {}
-            for doc_id, data in self.mock_db[self.collection_name].items():
-                if field in data:
-                    if op == '==' and data[field] == value:
-                        filtered_docs[doc_id] = data
-                    elif op == 'in' and data[field] in value:
-                        filtered_docs[doc_id] = data
-            return FirebaseService.MockQuery(filtered_docs)
-
-    class MockDocument:
-        def __init__(self, mock_db, collection_name, doc_id):
-            self.mock_db = mock_db
-            self.collection_name = collection_name
-            self._id = doc_id
-
-        @property
-        def id(self):
-            return self._id
-
-        def set(self, data):
-            self.mock_db[self.collection_name][self._id] = data
-
-        def get(self):
-            data = self.mock_db[self.collection_name].get(self._id)
-            return FirebaseService.MockDocumentSnapshot(self._id, data)
-
-        def update(self, data):
-            if self._id in self.mock_db[self.collection_name]:
-                self.mock_db[self.collection_name][self._id].update(data)
-
-        def delete(self):
-            if self._id in self.mock_db[self.collection_name]:
-                del self.mock_db[self.collection_name][self._id]
-
-    class MockDocumentSnapshot:
-        def __init__(self, doc_id, data):
-            self._id = doc_id
-            self._data = data
-
-        def to_dict(self):
-            return self._data if self._data else None
-
-        def exists(self):
-            return self._data is not None
-
-        @property
-        def id(self):
-            return self._id
-
-    class MockQuery:
-        def __init__(self, filtered_docs):
-            self.filtered_docs = filtered_docs
-
-        def get(self):
-            return [FirebaseService.MockDocumentSnapshot(doc_id, data) 
-                   for doc_id, data in self.filtered_docs.items()]
+    def update_user(self, user: User):
+        """
+        Update a user in Firestore
+        :param user: User object
+        :return: None
+        """
+        try:
+            db = firestore.client()
+            user_ref = db.collection('users').document(user.id)
+            user_ref.update({
+                'name': user.name,
+                'role': user.role,
+                'updated_at': firestore.SERVER_TIMESTAMP
+            })
+            
+            # Update custom claims
+            auth.set_custom_user_claims(user.id, {'role': user.role})
+            
+        except Exception as e:
+            print(f"Error updating user: {str(e)}")
+            raise
 
     # User operations
     def create_user(self, user: User):
@@ -260,3 +224,67 @@ class FirebaseService:
         event_ref.update({
             'registered_users': firestore.ArrayRemove([user_id])
         })
+
+    def get_user_by_uid(self, uid):
+        """
+        Get a user by their UID
+        :param uid: The user's UID
+        :return: The user record if found, None otherwise
+        """
+        try:
+            return auth.get_user(uid)
+        except auth.UserNotFoundError:
+            return None
+        except Exception as e:
+            print(f"Error getting user: {str(e)}")
+            return None
+
+    def create_user_auth(self, email, password):
+        """
+        Create a new Firebase user
+        :param email: User's email
+        :param password: User's password
+        :return: The created user record
+        """
+        try:
+            user = auth.create_user(
+                email=email,
+                password=password
+            )
+            return user
+        except Exception as e:
+            print(f"Error creating user: {str(e)}")
+            raise
+
+    def set_custom_claims(self, uid, claims):
+        """
+        Set custom claims for a user
+        :param uid: The user's UID
+        :param claims: Dictionary of custom claims
+        """
+        try:
+            auth.set_custom_user_claims(uid, claims)
+            return True
+        except Exception as e:
+            print(f"Error setting custom claims: {str(e)}")
+            return False
+
+def firebase_token_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        auth_header = request.headers.get('Authorization')
+        if not auth_header or not auth_header.startswith('Bearer '):
+            return jsonify({'message': 'No token provided'}), 401
+
+        token = auth_header.split('Bearer ')[1]
+        firebase_service = FirebaseService()
+        decoded_token = firebase_service.verify_token(token)
+
+        if not decoded_token:
+            return jsonify({'message': 'Invalid token'}), 401
+
+        # Add the decoded token to the request context
+        request.firebase_user = decoded_token
+        return f(*args, **kwargs)
+
+    return decorated_function

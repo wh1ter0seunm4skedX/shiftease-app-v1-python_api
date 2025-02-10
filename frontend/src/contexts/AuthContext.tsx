@@ -1,6 +1,28 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User, AuthContextType } from '../types';
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+  User as FirebaseUser
+} from 'firebase/auth';
+import { auth } from '../config/firebase';
 import { apiService } from '../services/api';
+
+interface User {
+  id: string;
+  email: string;
+  name?: string;
+  role?: string;
+}
+
+interface AuthContextType {
+  user: User | null;
+  loading: boolean;
+  login: (email: string, password: string) => Promise<{ success: boolean }>;
+  register: (email: string, password: string, name: string, role: string) => Promise<{ success: boolean }>;
+  logout: () => Promise<void>;
+}
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -13,57 +35,57 @@ export const useAuth = () => {
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(() => {
-    const savedUser = localStorage.getItem('user');
-    return savedUser ? JSON.parse(savedUser) : null;
-  });
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const initializeAuth = async () => {
-      const token = localStorage.getItem('token');
-      if (token) {
+    console.log('Setting up auth state listener');
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      console.log('Auth state changed:', firebaseUser);
+      if (firebaseUser) {
         try {
-          apiService.setToken(token);
-          const currentUser = await apiService.getCurrentUser();
-          if (currentUser) {
-            setUser(currentUser);
-            localStorage.setItem('user', JSON.stringify(currentUser));
-          } else {
-            throw new Error('Failed to get current user');
-          }
+          // Get the ID token
+          const idToken = await firebaseUser.getIdToken();
+          console.log('Got ID token');
+          
+          // Set the token in the API service
+          apiService.setToken(idToken);
+          
+          // Create user object
+          const userData: User = {
+            id: firebaseUser.uid,
+            email: firebaseUser.email!,
+            name: firebaseUser.displayName || undefined,
+            role: 'worker' // Default role
+          };
+          
+          setUser(userData);
         } catch (error) {
-          console.error('Auth initialization error:', error);
-          apiService.clearAuth();
+          console.error('Error setting up user:', error);
           setUser(null);
         }
+      } else {
+        console.log('No firebase user');
+        setUser(null);
+        apiService.clearAuth();
       }
       setLoading(false);
+    });
+
+    return () => {
+      console.log('Cleaning up auth state listener');
+      unsubscribe();
     };
-
-    initializeAuth();
   }, []);
-
-  // Update localStorage whenever user changes
-  useEffect(() => {
-    if (user) {
-      localStorage.setItem('user', JSON.stringify(user));
-    } else {
-      localStorage.removeItem('user');
-    }
-  }, [user]);
 
   const login = async (email: string, password: string) => {
     try {
-      const response = await apiService.post('/auth/login', { email, password });
-      const { token, user: userData } = response.data;
-      
-      apiService.setToken(token);
-      setUser(userData);
-      localStorage.setItem('user', JSON.stringify(userData));
-      
+      console.log('Attempting login');
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const idToken = await userCredential.user.getIdToken();
+      apiService.setToken(idToken);
       return { success: true };
-    } catch (error) {
+    } catch (error: any) {
       console.error('Login error:', error);
       throw error;
     }
@@ -71,20 +93,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const register = async (email: string, password: string, name: string, role: string) => {
     try {
-      const response = await apiService.post('/auth/register', {
-        email,
-        password,
-        name,
-        role
-      });
+      console.log('Attempting registration');
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const idToken = await userCredential.user.getIdToken();
+      apiService.setToken(idToken);
       
-      const { token, user: userData } = response.data;
-      apiService.setToken(token);
-      setUser(userData);
-      localStorage.setItem('user', JSON.stringify(userData));
+      // Create user profile in backend
+      await apiService.post('/auth/create-profile', { name, role });
       
       return { success: true };
-    } catch (error) {
+    } catch (error: any) {
       console.error('Registration error:', error);
       throw error;
     }
@@ -92,13 +110,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     try {
-      await apiService.post('/auth/logout', {});
-    } catch (error) {
-      console.error('Logout error:', error);
-    } finally {
+      console.log('Attempting logout');
+      await signOut(auth);
       apiService.clearAuth();
-      setUser(null);
-      window.location.href = '/login';
+    } catch (error: any) {
+      console.error('Logout error:', error);
+      throw error;
     }
   };
 
