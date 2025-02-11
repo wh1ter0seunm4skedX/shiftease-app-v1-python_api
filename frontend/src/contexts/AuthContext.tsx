@@ -6,21 +6,24 @@ import {
   onAuthStateChanged,
   User as FirebaseUser
 } from 'firebase/auth';
-import { auth } from '../config/firebase';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { auth, db } from '../config/firebase';
 import { apiService } from '../services/api';
 
 interface User {
   id: string;
   email: string;
-  name?: string;
-  role?: string;
+  name: string;
+  role: 'youth_worker' | 'admin';
+  createdAt: Date;
+  lastLogin: Date;
 }
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<{ success: boolean }>;
-  register: (email: string, password: string, name: string, role: string) => Promise<{ success: boolean }>;
+  login: (email: string, password: string) => Promise<void>;
+  register: (email: string, password: string, name: string, role: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -38,6 +41,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Function to get or create user document
+  const getOrCreateUserDocument = async (firebaseUser: FirebaseUser, userData?: Partial<User>) => {
+    const userRef = doc(db, 'users', firebaseUser.uid);
+    const userSnap = await getDoc(userRef);
+
+    if (userSnap.exists()) {
+      // Update last login
+      const existingData = userSnap.data() as User;
+      await setDoc(userRef, {
+        ...existingData,
+        lastLogin: new Date()
+      }, { merge: true });
+      
+      return {
+        ...existingData,
+        id: firebaseUser.uid,
+        lastLogin: new Date()
+      };
+    } else if (userData) {
+      // Create new user document
+      const newUser: User = {
+        id: firebaseUser.uid,
+        email: firebaseUser.email!,
+        name: userData.name || '',
+        role: (userData.role as 'youth_worker' | 'admin') || 'youth_worker',
+        createdAt: new Date(),
+        lastLogin: new Date()
+      };
+      
+      await setDoc(userRef, newUser);
+      return newUser;
+    }
+    
+    throw new Error('No user data available');
+  };
+
   useEffect(() => {
     console.log('Setting up auth state listener');
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -51,14 +90,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Set the token in the API service
           apiService.setToken(idToken);
           
-          // Create user object
-          const userData: User = {
-            id: firebaseUser.uid,
-            email: firebaseUser.email!,
-            name: firebaseUser.displayName || undefined,
-            role: 'worker' // Default role
-          };
-          
+          // Get or update user document
+          const userData = await getOrCreateUserDocument(firebaseUser);
           setUser(userData);
         } catch (error) {
           console.error('Error setting up user:', error);
@@ -84,7 +117,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const idToken = await userCredential.user.getIdToken();
       apiService.setToken(idToken);
-      return { success: true };
     } catch (error: any) {
       console.error('Login error:', error);
       throw error;
@@ -98,10 +130,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const idToken = await userCredential.user.getIdToken();
       apiService.setToken(idToken);
       
-      // Create user profile in backend
-      await apiService.post('/auth/create-profile', { name, role });
-      
-      return { success: true };
+      // Create user document in Firestore
+      await getOrCreateUserDocument(userCredential.user, { name, role });
     } catch (error: any) {
       console.error('Registration error:', error);
       throw error;

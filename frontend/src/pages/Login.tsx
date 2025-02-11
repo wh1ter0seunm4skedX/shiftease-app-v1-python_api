@@ -3,9 +3,13 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { motion } from 'framer-motion';
 
+type UserRole = 'youth_worker' | 'admin';
+
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [role, setRole] = useState<UserRole>('youth_worker');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
@@ -20,7 +24,10 @@ const Login = () => {
 
     try {
       if (isSignUp) {
-        await register(email, password, email.split('@')[0], 'worker');
+        if (!name.trim()) {
+          throw new Error('Name is required');
+        }
+        await register(email, password, name, role);
       } else {
         await login(email, password);
       }
@@ -51,6 +58,23 @@ const Login = () => {
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="rounded-md shadow-sm -space-y-px">
+            {isSignUp && (
+              <div>
+                <label htmlFor="name" className="sr-only">
+                  Full Name
+                </label>
+                <input
+                  id="name"
+                  name="name"
+                  type="text"
+                  required
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="appearance-none rounded-t-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                  placeholder="Full Name"
+                />
+              </div>
+            )}
             <div>
               <label htmlFor="email-address" className="sr-only">
                 Email address
@@ -63,7 +87,9 @@ const Login = () => {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                className={`appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm ${
+                  isSignUp ? '' : 'rounded-t-md'
+                }`}
                 placeholder="Email address"
               />
             </div>
@@ -79,10 +105,29 @@ const Login = () => {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                className={`appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm ${
+                  isSignUp ? '' : 'rounded-b-md'
+                }`}
                 placeholder="Password"
               />
             </div>
+            {isSignUp && (
+              <div>
+                <label htmlFor="role" className="sr-only">
+                  Role
+                </label>
+                <select
+                  id="role"
+                  name="role"
+                  value={role}
+                  onChange={(e) => setRole(e.target.value as UserRole)}
+                  className="appearance-none rounded-b-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                >
+                  <option value="youth_worker">Youth Worker</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+            )}
           </div>
 
           {error && (
@@ -132,7 +177,12 @@ const Login = () => {
           <div className="text-sm text-center">
             <button
               type="button"
-              onClick={() => setIsSignUp(!isSignUp)}
+              onClick={() => {
+                setIsSignUp(!isSignUp);
+                setError('');
+                setName('');
+                setRole('youth_worker');
+              }}
               className="font-medium text-indigo-600 hover:text-indigo-500"
             >
               {isSignUp
@@ -142,7 +192,6 @@ const Login = () => {
           </div>
         </form>
 
-        {/* Keep the test link for development */}
         {process.env.NODE_ENV === 'development' && (
           <div className="mt-4 text-center">
             <a
