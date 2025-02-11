@@ -1,19 +1,14 @@
-```                                                                                                                                    
-   .=-.-..-._                                ,----.         ,-.-.    ,----.              _,.---._        _ __           ___      ,----.  .-._        ,--.--------.  
-  /==/_ /==/ \  .-._          _,..---._   ,-.--` , \ ,--.-./=/ ,/ ,-.--` , \   _.-.    ,-.' , -  `.   .-`.' ,`.  .-._ .'=.'\  ,-.--` , \/==/ \  .-._/==/,  -   , -\ 
- |==|, ||==|, \/ /, /       /==/,   -  \ |==|-  _.-`/==/, ||=| -||==|-  _.-` .-,.'|   /==/_,  ,  - \ /==/, -   \/==/ \|==|  ||==|-  _.-`|==|, \/ /, |==\.-.  - ,-./ 
- |==|  ||==|-  \|  |        |==|   _   _\|==|   `.-.\==\,  \ / ,||==|   `.-.|==|, |  |==|   .=.     |==| _ .=. ||==|,|  / - ||==|   `.-.|==|-  \|  | `--`\==\- \    
- |==|- ||==| ,  | -|        |==|  .=.   /==/_ ,    / \==\ - ' - /==/_ ,    /|==|- |  |==|_ : ;=:  - |==| , '=',||==|  \/  , /==/_ ,    /|==| ,  | -|      \==\_ \   
- |==| ,||==| -   _ |        |==|,|   | -|==|    .-'   \==\ ,   ||==|    .-' |==|, |  |==| , '='     |==|-  '..' |==|- ,   _ |==|    .-' |==| -   _ |      |==|- |   
- |==|- ||==|  /\ , |        |==|  '='   /==|_  ,`-._  |==| -  ,/|==|_  ,`-._|==|- `-._\==\ -    ,_ /|==|,  |    |==| _ /\   |==|_  ,`-._|==|  /\ , |      |==|, |   
- /==/. //==/, | |- |        |==|-,   _`//==/ ,     /  \==\  _ / /==/ ,     //==/ - , ,/'.='. -   .' /==/ - |    /==/  / / , /==/ ,     //==/, | |- |      /==/ -/   
- `--`-` `--`./  `--`        `-.`.____.' `--`-----``    `--`--'  `--`-----`` `--`-----'   `--`--''   `--`---'    `--`./  `--``--`-----`` `--`./  `--`      `--`--`                                                                                                                                                    
 ```
-# ShiftEase
-
-A modern event management system designed to streamline coordination and engagement for **youth workers** at community centers.
-
----
+   .=-.-..-._                                ,----.         ,-.-. 
+  /==/_ /==/ \  .-._          _,..---._   ,-.--` , \ ,--.-./=/ ,/ 
+ |==|, ||==|, \/ /, /       /==/,   -  \ |==|-  _.-`/==/, ||=| -| 
+ |==|  ||==|-  \|  |        |==|   _   _\|==|   `.-.\==\,  \ / ,| 
+ |==|- ||==| ,  | -|        |==|  .=.   /==/_ ,    / \==\ - ' - / 
+ |==| ,||==| -   _ |        |==|,|   | -|==|    .-'   \==\ ,   |  
+ |==|- ||==|  /\ , |        |==|  '='   /==|_  ,`-._  |==| -  ,/  
+ /==/. //==/, | |- |        |==|-,   _`//==/ ,     /  \==\  _ /   
+ `--`-` `--`./  `--`        `-.`.____.' `--`-----``    `--`--'
+```
 
 ### **Overview**
 
@@ -37,73 +32,8 @@ A modern event management system designed to streamline coordination and engagem
 ShiftEase/
 ├── backend/         # Flask backend API
 ├── frontend/        # React frontend application
-├── docs/            # Documentation
 ```
 
----
-
-### **Prerequisites**
-
-- Node.js (v16 or higher)
-- Python (3.8 or higher)
-- Firebase account
-- Git
-
----
-
-### **Quick Start**
-
-1. **Clone the repository:**
-
-    ```bash
-    git clone https://github.com/yourusername/ShiftEase.git
-    cd ShiftEase
-    ```
-
-2. **Set up the backend:**
-
-    ```bash
-    cd backend
-    python -m venv venv
-    source venv/bin/activate  # On Windows: .\venv\Scripts\activate
-    pip install -r requirements.txt
-    cp .env.example .env     # Configure your environment variables
-    ```
-
-3. **Set up the frontend:**
-
-    ```bash
-    cd frontend
-    npm install
-    cp .env.example .env.local  # Configure your environment variables
-    ```
-
-4. **Start the development servers:**
-
-    - **Backend:**
-
-        ```bash
-        cd backend
-        python run.py
-        ```
-
-    - **Frontend:**
-
-        ```bash
-        cd frontend
-        npm run dev
-        ```
-
----
-
-### **Documentation**
-
-For detailed setup instructions and API documentation:
-
-- [Backend Documentation]
-- [Frontend Documentation]
-
----
 
 ### **License**
 
