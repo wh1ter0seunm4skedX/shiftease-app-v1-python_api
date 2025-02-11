@@ -1,13 +1,12 @@
 from datetime import datetime
 
 class Event:
-    def __init__(self, title, description, date, capacity, required_workers=None, event_id=None):
+    def __init__(self, title, description, date, required_workers, event_id=None):
         self.id = event_id
         self.title = title
         self.description = description
         self.date = date
-        self.capacity = capacity
-        self.required_workers = required_workers or capacity  # If not specified, assume all capacity slots are required
+        self.required_workers = required_workers  
         self.registered_users = []
         self.created_at = datetime.utcnow().isoformat()
     
@@ -16,7 +15,6 @@ class Event:
             'title': self.title,
             'description': self.description,
             'date': self.date,
-            'capacity': self.capacity,
             'required_workers': self.required_workers,
             'registered_users': self.registered_users,
             'created_at': self.created_at
@@ -29,7 +27,6 @@ class Event:
             title=data.get('title'),
             description=data.get('description'),
             date=data.get('date'),
-            capacity=data.get('capacity'),
             required_workers=data.get('required_workers'),
             event_id=event_id or data.get('event_id')
         )
@@ -38,7 +35,7 @@ class Event:
         return event
 
     def is_full(self):
-        return len(self.registered_users) >= self.capacity
+        return len(self.registered_users) >= self.required_workers
 
     def needs_workers(self):
         """Check if the event still needs workers"""

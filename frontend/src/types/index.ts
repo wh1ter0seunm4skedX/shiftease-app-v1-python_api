@@ -2,8 +2,9 @@ export interface User {
   id: string;
   email: string;
   name: string;
-  role: string;
-  created_at?: string;
+  role: 'youth_worker' | 'admin';
+  created_at: Date;
+  last_login?: Date;
 }
 
 export interface AuthContextType {
@@ -15,13 +16,12 @@ export interface AuthContextType {
 }
 
 export interface Event {
-  id: string;
+  id?: string;
   title: string;
   description: string;
-  date: string;
-  capacity: number;
-  registered_workers: string[];
-  created_by: string;
-  created_at: string;
-  updated_at?: string;
+  date: string | Date;
+  required_workers: number;
+  registered_users: string[];
+  created_at: string | Date;
+  created_by?: string;
 }

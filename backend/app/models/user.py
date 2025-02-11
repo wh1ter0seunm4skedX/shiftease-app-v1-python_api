@@ -1,32 +1,23 @@
+from pydantic import BaseModel, Field
+from typing import Optional
 from datetime import datetime
 
-class User:
-    def __init__(self, email, name, role, password=None, user_id=None):
-        self.id = user_id
-        self.email = email
-        self.name = name
-        self.role = role
-        self.password = password
-        self.created_at = datetime.utcnow().isoformat()
-    
-    def to_dict(self):
-        return {
-            'email': self.email,
-            'name': self.name,
-            'role': self.role,
-            'password': self.password,
-            'created_at': self.created_at
+class User(BaseModel):
+    id: str = Field(..., description="Firebase UID")
+    email: str = Field(..., description="User's email address")
+    name: str = Field(..., description="User's full name")
+    role: str = Field(..., description="User's role (youth_worker or admin)")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    last_login: Optional[datetime] = None
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "id": "firebase_uid_123",
+                "email": "user@example.com",
+                "name": "John Doe",
+                "role": "youth_worker",
+                "created_at": "2025-02-11T16:53:34",
+                "last_login": "2025-02-11T16:53:34"
+            }
         }
-    
-    @staticmethod
-    def from_dict(data, user_id=None):
-        """Create a User instance from a dictionary"""
-        user = User(
-            email=data.get('email'),
-            name=data.get('name'),
-            role=data.get('role'),
-            password=data.get('password'),
-            user_id=user_id or data.get('user_id')
-        )
-        user.created_at = data.get('created_at', datetime.utcnow().isoformat())
-        return user
