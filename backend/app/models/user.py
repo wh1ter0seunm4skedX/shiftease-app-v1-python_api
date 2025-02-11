@@ -1,23 +1,51 @@
-from pydantic import BaseModel, Field
-from typing import Optional
 from datetime import datetime
+from typing import Optional, List
 
-class User(BaseModel):
-    id: str = Field(..., description="Firebase UID")
-    email: str = Field(..., description="User's email address")
-    name: str = Field(..., description="User's full name")
-    role: str = Field(..., description="User's role (youth_worker or admin)")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    last_login: Optional[datetime] = None
+class User:
+    def __init__(self, id: str, email: str, name: str, role: str = 'worker',
+                 created_at: Optional[datetime] = None, last_login: Optional[datetime] = None,
+                 registered_events: Optional[List[str]] = None):
+        self.id = id  # Firebase UID
+        self.email = email
+        self.name = name
+        self.role = role
+        self.created_at = created_at or datetime.utcnow()
+        self.last_login = last_login
+        self.registered_events = registered_events or []
 
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "id": "firebase_uid_123",
-                "email": "user@example.com",
-                "name": "John Doe",
-                "role": "youth_worker",
-                "created_at": "2025-02-11T16:53:34",
-                "last_login": "2025-02-11T16:53:34"
-            }
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'email': self.email,
+            'name': self.name,
+            'role': self.role,
+            'created_at': self.created_at.isoformat() if isinstance(self.created_at, datetime) else self.created_at,
+            'last_login': self.last_login.isoformat() if isinstance(self.last_login, datetime) else self.last_login,
+            'registered_events': self.registered_events
         }
+
+    @staticmethod
+    def from_dict(data: dict, id: str = None):
+        return User(
+            id=data.get('id', id),
+            email=data.get('email'),
+            name=data.get('name'),
+            role=data.get('role', 'worker'),
+            created_at=data.get('created_at'),
+            last_login=data.get('last_login'),
+            registered_events=data.get('registered_events', [])
+        )
+
+    def is_admin(self):
+        return self.role == 'admin'
+
+    def is_worker(self):
+        return self.role == 'worker'
+
+    def register_event(self, event_id: str):
+        if event_id not in self.registered_events:
+            self.registered_events.append(event_id)
+
+    def unregister_event(self, event_id: str):
+        if event_id in self.registered_events:
+            self.registered_events.remove(event_id)

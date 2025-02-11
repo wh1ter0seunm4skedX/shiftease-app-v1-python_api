@@ -290,6 +290,118 @@ class FirebaseService:
             print(f"Error setting custom claims: {str(e)}")
             return False
 
+    def get_user_by_id(self, user_id: str) -> User:
+        """Get a user by their Firebase UID"""
+        try:
+            # Get user from Firebase Auth
+            auth_user = auth.get_user(user_id)
+            # Get additional user data from Firestore
+            user_doc = self.db.collection('users').document(user_id).get()
+            user_data = user_doc.to_dict() if user_doc.exists else {}
+            
+            # Merge Auth and Firestore data
+            return User(
+                id=auth_user.uid,
+                email=auth_user.email,
+                name=user_data.get('name', auth_user.display_name or auth_user.email),
+                role=user_data.get('role', 'worker'),
+                created_at=user_data.get('created_at'),
+                last_login=user_data.get('last_login'),
+                registered_events=user_data.get('registered_events', [])
+            )
+        except auth.UserNotFoundError:
+            return None
+        except Exception as e:
+            print(f"Error getting user {user_id}: {str(e)}")
+            return None
+
+    def get_all_users(self) -> list:
+        """Get all users from Firebase"""
+        try:
+            users = []
+            # Get all users from Firestore
+            user_docs = self.db.collection('users').stream()
+            
+            for user_doc in user_docs:
+                try:
+                    # Get user from Firebase Auth
+                    auth_user = auth.get_user(user_doc.id)
+                    user_data = user_doc.to_dict()
+                    
+                    # Create User object
+                    user = User(
+                        id=auth_user.uid,
+                        email=auth_user.email,
+                        name=user_data.get('name', auth_user.display_name or auth_user.email),
+                        role=user_data.get('role', 'worker'),
+                        created_at=user_data.get('created_at'),
+                        last_login=user_data.get('last_login'),
+                        registered_events=user_data.get('registered_events', [])
+                    )
+                    users.append(user)
+                except auth.UserNotFoundError:
+                    # Skip users that exist in Firestore but not in Auth
+                    continue
+                    
+            return users
+        except Exception as e:
+            print(f"Error getting all users: {str(e)}")
+            return []
+
+    def create_user(self, email: str, password: str, name: str, role: str = 'worker') -> User:
+        """Create a new user in Firebase"""
+        try:
+            # Create user in Firebase Auth
+            auth_user = auth.create_user(
+                email=email,
+                password=password,
+                display_name=name
+            )
+            
+            # Create user document in Firestore
+            user_data = {
+                'name': name,
+                'role': role,
+                'created_at': firestore.SERVER_TIMESTAMP,
+                'registered_events': []
+            }
+            self.db.collection('users').document(auth_user.uid).set(user_data)
+            
+            # Return new user
+            return self.get_user_by_id(auth_user.uid)
+        except Exception as e:
+            print(f"Error creating user: {str(e)}")
+            return None
+
+    def update_user(self, user_id: str, data: dict) -> bool:
+        """Update a user's information"""
+        try:
+            # Update Auth user if name is being updated
+            if 'name' in data:
+                auth.update_user(
+                    user_id,
+                    display_name=data['name']
+                )
+            
+            # Update Firestore document
+            self.db.collection('users').document(user_id).update(data)
+            return True
+        except Exception as e:
+            print(f"Error updating user {user_id}: {str(e)}")
+            return False
+
+    def delete_user(self, user_id: str) -> bool:
+        """Delete a user from Firebase"""
+        try:
+            # Delete from Auth
+            auth.delete_user(user_id)
+            # Delete from Firestore
+            self.db.collection('users').document(user_id).delete()
+            return True
+        except Exception as e:
+            print(f"Error deleting user {user_id}: {str(e)}")
+            return False
+
 def firebase_token_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
