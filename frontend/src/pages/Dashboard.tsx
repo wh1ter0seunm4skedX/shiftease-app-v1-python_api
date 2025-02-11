@@ -17,8 +17,8 @@ const Dashboard: React.FC = () => {
 
   const fetchEvents = async () => {
     try {
-      const data = await apiService.getEvents();
-      setEvents(data);
+      const response = await apiService.getEvents();
+      setEvents(response.data);
     } catch (err) {
       setError('Failed to fetch events');
       console.error(err);

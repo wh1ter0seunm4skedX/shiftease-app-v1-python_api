@@ -23,7 +23,7 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, name: string, role: string) => Promise<void>;
+  register: (email: string, password: string, name: string, role: 'youth_worker' | 'admin') => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -127,7 +127,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const register = async (email: string, password: string, name: string, role: string) => {
+  const register = async (email: string, password: string, name: string, role: 'youth_worker' | 'admin') => {
     try {
       console.log('Attempting registration');
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
