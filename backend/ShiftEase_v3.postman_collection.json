@@ -1,0 +1,284 @@
+{
+    "info": {
+        "_postman_id": "random-uuid",
+        "name": "ShiftEase API v3",
+        "description": "Updated API collection using Firebase Authentication",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+            "name": "Auth",
+            "item": [
+                {
+                    "name": "Test Auth",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{firebase_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/auth/test-auth",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "auth", "test-auth"]
+                        },
+                        "description": "Test if Firebase authentication is working"
+                    }
+                },
+                {
+                    "name": "Get Current User",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{firebase_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/auth/me",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "auth", "me"]
+                        },
+                        "description": "Get the current user's profile"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Events",
+            "item": [
+                {
+                    "name": "Get All Events",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{firebase_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/events",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "events"]
+                        }
+                    }
+                },
+                {
+                    "name": "Create Event",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{firebase_token}}"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"title\": \"Community Workshop\",\n    \"description\": \"A fun workshop for the community\",\n    \"date\": \"2025-02-01T14:00:00Z\",\n    \"required_workers\": 5\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/events",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "events"]
+                        }
+                    }
+                },
+                {
+                    "name": "Get Event by ID",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{firebase_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/events/:event_id",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "events", ":event_id"],
+                            "variable": [
+                                {
+                                    "key": "event_id",
+                                    "value": "your_event_id_here"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Update Event",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{firebase_token}}"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"title\": \"Updated Workshop\",\n    \"description\": \"Updated description\",\n    \"date\": \"2025-02-01T15:00:00Z\",\n    \"required_workers\": 5\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/events/:event_id",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "events", ":event_id"],
+                            "variable": [
+                                {
+                                    "key": "event_id",
+                                    "value": "your_event_id_here"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Delete Event",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{firebase_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/events/:event_id",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "events", ":event_id"],
+                            "variable": [
+                                {
+                                    "key": "event_id",
+                                    "value": "your_event_id_here"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Register for Event",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{firebase_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/events/:event_id/register",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "events", ":event_id", "register"],
+                            "variable": [
+                                {
+                                    "key": "event_id",
+                                    "value": "your_event_id_here"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Unregister from Event",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{firebase_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/events/:event_id/unregister",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "events", ":event_id", "unregister"],
+                            "variable": [
+                                {
+                                    "key": "event_id",
+                                    "value": "your_event_id_here"
+                                }
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Users",
+            "item": [
+                {
+                    "name": "Get All Users",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{firebase_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/users",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "users"]
+                        }
+                    }
+                },
+                {
+                    "name": "Get User by ID",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{firebase_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/users/:user_id",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "users", ":user_id"],
+                            "variable": [
+                                {
+                                    "key": "user_id",
+                                    "value": "your_user_id_here"
+                                }
+                            ]
+                        }
+                    }
+                }
+            ]
+        }
+    ],
+    "event": [
+        {
+            "listen": "prerequest",
+            "script": {
+                "type": "text/javascript",
+                "exec": [
+                    ""
+                ]
+            }
+        }
+    ],
+    "variable": [
+        {
+            "key": "base_url",
+            "value": "http://localhost:5000",
+            "type": "string"
+        }
+    ]
+}

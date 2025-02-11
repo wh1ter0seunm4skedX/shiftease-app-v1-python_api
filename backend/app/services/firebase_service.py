@@ -25,6 +25,9 @@ class FirebaseService:
                 print(f"Initializing Firebase with credentials from: {creds_path}")
                 cred = credentials.Certificate(creds_path)
                 firebase_admin.initialize_app(cred)
+            
+            # Initialize Firestore
+            cls._instance.db = firestore.client()
                 
         return cls._instance
 
@@ -48,25 +51,155 @@ class FirebaseService:
         :return: User object if found, None otherwise
         """
         try:
-            # First get the Firebase Auth user
-            auth_user = auth.get_user(uid)
-            
-            # Then get the user document from Firestore
-            db = firestore.client()
-            user_doc = db.collection('users').document(uid).get()
-            
+            # Get user data from Firestore
+            user_doc = self.db.collection('users').document(uid).get()
             if user_doc.exists:
                 user_data = user_doc.to_dict()
                 return User(
                     id=uid,
-                    email=auth_user.email,
-                    name=user_data.get('name', ''),
-                    role=user_data.get('role', 'worker')
+                    email=user_data.get('email'),
+                    name=user_data.get('name'),
+                    role=user_data.get('role', 'worker')  # Default to worker if role not set
                 )
             return None
         except Exception as e:
-            print(f"Error getting user: {str(e)}")
+            print(f"Error getting user by ID: {str(e)}")
             return None
+
+    def get_all_events(self):
+        """
+        Get all events from Firestore
+        :return: List of Event objects
+        """
+        try:
+            events = []
+            events_ref = self.db.collection('events').stream()
+            
+            for event_doc in events_ref:
+                event_data = event_doc.to_dict()
+                event = Event(
+                    id=event_doc.id,
+                    title=event_data.get('title'),
+                    description=event_data.get('description'),
+                    date=event_data.get('date'),
+                    required_workers=event_data.get('required_workers', 0),
+                    registered_workers=event_data.get('registered_workers', [])
+                )
+                events.append(event)
+            
+            return events
+        except Exception as e:
+            print(f"Error getting all events: {str(e)}")
+            return []
+
+    def get_event(self, event_id):
+        """
+        Get an event from Firestore by ID
+        :param event_id: The event's ID
+        :return: Event object if found, None otherwise
+        """
+        try:
+            event_doc = self.db.collection('events').document(event_id).get()
+            if event_doc.exists:
+                event_data = event_doc.to_dict()
+                return Event(
+                    id=event_id,
+                    title=event_data.get('title'),
+                    description=event_data.get('description'),
+                    date=event_data.get('date'),
+                    required_workers=event_data.get('required_workers', 0),
+                    registered_workers=event_data.get('registered_workers', [])
+                )
+            return None
+        except Exception as e:
+            print(f"Error getting event: {str(e)}")
+            return None
+
+    def create_event(self, event):
+        """
+        Create a new event in Firestore
+        :param event: Event object
+        :return: Event ID if successful, None otherwise
+        """
+        try:
+            event_ref = self.db.collection('events').document()
+            event_ref.set({
+                'title': event.title,
+                'description': event.description,
+                'date': event.date,
+                'required_workers': event.required_workers,
+                'registered_workers': [],
+                'created_at': firestore.SERVER_TIMESTAMP
+            })
+            return event_ref.id
+        except Exception as e:
+            print(f"Error creating event: {str(e)}")
+            return None
+
+    def update_event(self, event_id, event_data):
+        """
+        Update an event in Firestore
+        :param event_id: The event's ID
+        :param event_data: Dictionary of fields to update
+        :return: True if successful, False otherwise
+        """
+        try:
+            event_ref = self.db.collection('events').document(event_id)
+            event_ref.update({
+                **event_data,
+                'updated_at': firestore.SERVER_TIMESTAMP
+            })
+            return True
+        except Exception as e:
+            print(f"Error updating event: {str(e)}")
+            return False
+
+    def delete_event(self, event_id):
+        """
+        Delete an event from Firestore
+        :param event_id: The event's ID
+        :return: True if successful, False otherwise
+        """
+        try:
+            self.db.collection('events').document(event_id).delete()
+            return True
+        except Exception as e:
+            print(f"Error deleting event: {str(e)}")
+            return False
+
+    def register_worker(self, event_id, user_id):
+        """
+        Register a worker for an event
+        :param event_id: The event's ID
+        :param user_id: The user's ID
+        :return: True if successful, False otherwise
+        """
+        try:
+            event_ref = self.db.collection('events').document(event_id)
+            event_ref.update({
+                'registered_workers': firestore.ArrayUnion([user_id])
+            })
+            return True
+        except Exception as e:
+            print(f"Error registering worker: {str(e)}")
+            return False
+
+    def unregister_worker(self, event_id, user_id):
+        """
+        Unregister a worker from an event
+        :param event_id: The event's ID
+        :param user_id: The user's ID
+        :return: True if successful, False otherwise
+        """
+        try:
+            event_ref = self.db.collection('events').document(event_id)
+            event_ref.update({
+                'registered_workers': firestore.ArrayRemove([user_id])
+            })
+            return True
+        except Exception as e:
+            print(f"Error unregistering worker: {str(e)}")
+            return False
 
     def create_user(self, user: User):
         """
@@ -112,118 +245,6 @@ class FirebaseService:
         except Exception as e:
             print(f"Error updating user: {str(e)}")
             raise
-
-    # User operations
-    def create_user(self, user: User):
-        """Create a new user document"""
-        if self.is_testing:
-            user_id = str(len(self.mock_db['users']) + 1)
-            self.mock_db['users'][user_id] = user.to_dict()
-            return user_id
-        else:
-            doc_ref = self.db.collection('users').document()
-            user_data = user.to_dict()
-            doc_ref.set(user_data)
-            return doc_ref.id
-
-    def get_user(self, user_id: str) -> User:
-        """Get user by ID"""
-        if self.is_testing:
-            if user_id not in self.mock_db['users']:
-                return None
-            user_data = self.mock_db['users'][user_id]
-            return User.from_dict(user_data)
-        else:
-            doc_ref = self.db.collection('users').document(user_id)
-            doc = doc_ref.get()
-            if not doc.exists:
-                return None
-            user_data = doc.to_dict()
-            user_data['user_id'] = doc.id
-            return User.from_dict(user_data)
-
-    def get_user_by_email(self, email: str):
-        """Get user by email"""
-        users_ref = self.db.collection('users')
-        query = users_ref.where('email', '==', email).get()
-        for user in query:
-            return User.from_dict(user.to_dict(), user.id)
-        return None
-
-    def get_all_users(self):
-        """Get all users"""
-        users = []
-        for doc in self.db.collection('users').get():
-            users.append(User.from_dict(doc.to_dict(), doc.id))
-        return users
-
-    def update_user(self, user_id: str, data: dict):
-        """Update user document"""
-        user_ref = self.db.collection('users').document(user_id)
-        user_ref.update(data)
-
-    def delete_user(self, user_id: str):
-        """Delete user document"""
-        self.db.collection('users').document(user_id).delete()
-
-    # Event operations
-    def create_event(self, event: Event):
-        """Create a new event document"""
-        if self.is_testing:
-            event_id = str(len(self.mock_db['events']) + 1)
-            self.mock_db['events'][event_id] = event.to_dict()
-            return event_id
-        else:
-            doc_ref = self.db.collection('events').document()
-            event_data = event.to_dict()
-            doc_ref.set(event_data)
-            return doc_ref.id
-
-    def get_event(self, event_id: str) -> Event:
-        """Get event by ID"""
-        if self.is_testing:
-            if event_id not in self.mock_db['events']:
-                return None
-            event_data = self.mock_db['events'][event_id]
-            return Event.from_dict(event_data)
-        else:
-            doc_ref = self.db.collection('events').document(event_id)
-            doc = doc_ref.get()
-            if not doc.exists:
-                return None
-            event_data = doc.to_dict()
-            event_data['event_id'] = doc.id
-            return Event.from_dict(event_data)
-
-    def get_all_events(self):
-        """Get all events"""
-        events = []
-        for doc in self.db.collection('events').get():
-            events.append(Event.from_dict(doc.to_dict(), doc.id))
-        return events
-
-    def update_event(self, event_id: str, data: dict):
-        """Update event document"""
-        event_ref = self.db.collection('events').document(event_id)
-        event_ref.update(data)
-
-    def delete_event(self, event_id: str):
-        """Delete event document"""
-        self.db.collection('events').document(event_id).delete()
-
-    def register_for_event(self, event_id: str, user_id: str):
-        """Register a user for an event"""
-        event_ref = self.db.collection('events').document(event_id)
-        event_ref.update({
-            'registered_users': firestore.ArrayUnion([user_id])
-        })
-
-    def unregister_from_event(self, event_id: str, user_id: str):
-        """Unregister a user from an event"""
-        event_ref = self.db.collection('events').document(event_id)
-        event_ref.update({
-            'registered_users': firestore.ArrayRemove([user_id])
-        })
 
     def get_user_by_uid(self, uid):
         """
