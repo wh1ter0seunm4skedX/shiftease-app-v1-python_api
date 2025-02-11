@@ -80,9 +80,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     console.log('Setting up auth state listener');
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      console.log('Auth state changed:', firebaseUser);
-      if (firebaseUser) {
-        try {
+      try {
+        if (firebaseUser) {
+          console.log('Auth state changed:', firebaseUser);
           // Get the ID token
           const idToken = await firebaseUser.getIdToken();
           console.log('Got ID token');
@@ -93,16 +93,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Get or update user document
           const userData = await getOrCreateUserDocument(firebaseUser);
           setUser(userData);
-        } catch (error) {
-          console.error('Error setting up user:', error);
+        } else {
+          console.log('No firebase user');
           setUser(null);
+          apiService.clearAuth();
         }
-      } else {
-        console.log('No firebase user');
+      } catch (error) {
+        console.error('Error in auth state change:', error);
         setUser(null);
         apiService.clearAuth();
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return () => {
@@ -117,6 +119,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const idToken = await userCredential.user.getIdToken();
       apiService.setToken(idToken);
+      const userData = await getOrCreateUserDocument(userCredential.user);
+      setUser(userData);
     } catch (error: any) {
       console.error('Login error:', error);
       throw error;
@@ -127,11 +131,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log('Attempting registration');
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      
+      // Get token and set it
       const idToken = await userCredential.user.getIdToken();
       apiService.setToken(idToken);
       
       // Create user document in Firestore
-      await getOrCreateUserDocument(userCredential.user, { name, role });
+      const userData = await getOrCreateUserDocument(userCredential.user, { name, role });
+      setUser(userData);
     } catch (error: any) {
       console.error('Registration error:', error);
       throw error;
@@ -142,6 +149,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log('Attempting logout');
       await signOut(auth);
+      setUser(null);
       apiService.clearAuth();
     } catch (error: any) {
       console.error('Logout error:', error);
@@ -159,7 +167,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   return (
     <AuthContext.Provider value={value}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   );
 };

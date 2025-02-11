@@ -28,19 +28,29 @@ const Login = () => {
           throw new Error('Name is required');
         }
         await register(email, password, name, role);
+        // After successful registration, navigate to dashboard
+        navigate('/');
       } else {
         await login(email, password);
+        // After successful login, navigate to dashboard or previous page
+        const from = (location.state as any)?.from?.pathname || '/';
+        navigate(from);
       }
-
-      // Get the redirect path from location state or default to '/'
-      const from = (location.state as any)?.from?.pathname || '/';
-      navigate(from, { replace: true });
     } catch (error: any) {
       console.error('Authentication error:', error);
       setError(error.message || 'Failed to authenticate');
     } finally {
       setLoading(false);
     }
+  };
+
+  const toggleMode = () => {
+    setIsSignUp(!isSignUp);
+    setError('');
+    setEmail('');
+    setPassword('');
+    setName('');
+    setRole('youth_worker');
   };
 
   return (
@@ -177,12 +187,7 @@ const Login = () => {
           <div className="text-sm text-center">
             <button
               type="button"
-              onClick={() => {
-                setIsSignUp(!isSignUp);
-                setError('');
-                setName('');
-                setRole('youth_worker');
-              }}
+              onClick={toggleMode}
               className="font-medium text-indigo-600 hover:text-indigo-500"
             >
               {isSignUp
